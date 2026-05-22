@@ -10,13 +10,14 @@ import os
 import uuid
 import zipfile
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Annotated, Optional
 
 import pandas as pd
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BeforeValidator
 
 import maps2
 
@@ -35,6 +36,23 @@ maps2.API_KEY = API_KEY
 maps2.BROWSER_API_KEY = os.getenv("GOOGLE_MAPS_BROWSER_KEY") or API_KEY
 
 ALLOWED_EXTENSIONS = ("xlsx", "xls", "csv")
+
+
+def _blank_to_none(value):
+    """Swagger UI submits an empty string for an unset file field. Treat that
+    as 'no file' so the single lat/lng path still works from the docs page,
+    while leaving a real UploadFile untouched."""
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
+
+
+# Optional uploaded file that tolerates Swagger's empty-string placeholder.
+OptionalUpload = Annotated[
+    Optional[UploadFile],
+    BeforeValidator(_blank_to_none),
+    File(description="Excel/CSV with lat & lng columns (bulk upload)."),
+]
 
 app = FastAPI(
     title="ProPosition Location API",
@@ -92,9 +110,7 @@ def health():
 
 @app.post("/api/get_data")
 def get_data(
-    file: Optional[UploadFile] = File(
-        default=None, description="Excel/CSV with lat & lng columns (bulk)."
-    ),
+    file: OptionalUpload = None,
     lat: Optional[float] = Query(default=None, description="Latitude (single coordinate)."),
     lng: Optional[float] = Query(default=None, description="Longitude (single coordinate)."),
 ):
