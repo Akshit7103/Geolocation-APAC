@@ -1,0 +1,13 @@
+services:
+  proposition-api:
+    build: .
+    image: proposition-api:latest
+    container_name: proposition-api
+    # Start on boot and recover from crashes; runs detached with `up -d`.
+    restart: unless-stopped
+    # Host port is configurable via .env (HOST_PORT); container always 8000.
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    # Loads GOOGLE_MAPS_API_KEY, ZIP_NAME_PREFIX, WORKERS, TIMEOUT, etc.
+    env_file:
+      - .env
